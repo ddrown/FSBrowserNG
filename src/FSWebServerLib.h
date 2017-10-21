@@ -11,8 +11,6 @@
 
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
-#include <TimeLib.h>
-#include <NtpClientLib.h>
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <ESP8266mDNS.h>
@@ -52,10 +50,6 @@ typedef struct {
     IPAddress  gateway;
     IPAddress  dns;
     bool dhcp;
-    String ntpServerName;
-    long updateNTPTimeEvery;
-    long timezone;
-    bool daylight;
     String deviceName;
 } strConfig;
 
@@ -90,7 +84,7 @@ public:
 	bool save_user_config(String name, long value);
 	bool load_user_config(String name, long &value);
 	static String urldecode(String input); // (based on https://code.google.com/p/avr-netino/)
-
+	void event_send(char *json, char *type);
 
 private:
 	JSON_CALLBACK_SIGNATURE;
@@ -116,7 +110,6 @@ protected:
 
     AsyncEventSource _evs = AsyncEventSource("/events");
 
-    void sendTimeData();
     bool load_config();
     void defaultConfig();
     bool save_config();
@@ -131,8 +124,6 @@ protected:
     void onWiFiConnected(WiFiEventStationModeConnected data);
     void onWiFiDisconnected(WiFiEventStationModeDisconnected data);
 
-    static void s_secondTick(void* arg);
-
     String getMacAddress();
 
     bool checkAuth(AsyncWebServerRequest *request);
@@ -146,10 +137,8 @@ protected:
     void send_network_configuration_values_html(AsyncWebServerRequest *request);
     void send_connection_state_values_html(AsyncWebServerRequest *request);
     void send_information_values_html(AsyncWebServerRequest *request);
-    void send_NTP_configuration_values_html(AsyncWebServerRequest *request);
     void send_network_configuration_html(AsyncWebServerRequest *request);
     void send_general_configuration_html(AsyncWebServerRequest *request);
-    void send_NTP_configuration_html(AsyncWebServerRequest *request);
     void restart_esp(AsyncWebServerRequest *request);
     void send_wwwauth_configuration_values_html(AsyncWebServerRequest *request);
     void send_wwwauth_configuration_html(AsyncWebServerRequest *request);

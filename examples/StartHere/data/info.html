@@ -48,36 +48,6 @@
 			<span><hr></span>
 		</td>
 	</tr>
-	<tr>
-		<td align="right">NTP Date:</td>
-		<td>
-			<span id="x_ntp_date"></span>
-		</td>
-	</tr>
-  <tr>
-    <td align="right">NTP Time:</td>
-    <td>
-      <span id="x_ntp_time"></span>
-    </td>
-  </tr>
-  <tr>
-    <td align="right">Last sync:</td>
-    <td>
-      <span id="x_ntp_sync"></span>
-    </td>
-  </tr>
-  <tr>
-    <td align="right">Uptime:</td>
-    <td>
-       <span id="x_uptime"></span>
-    </td>
-  </tr>
-  <tr>
-    <td align="right">Last boot:</td>
-    <td>
-       <span id="x_last_boot"></span>
-    </td>
-  </tr>
   <tr>
 		<td colspan="2" align="center">
 			<a href="javascript:GetState(); initEvt()" class="btn btn--m btn--blue">Refresh</a>
@@ -143,14 +113,6 @@
         evs.onmessage = function (evt) {
             console.log("Event " + evt.data);
         };
-        evs.addEventListener('timeDate', function (evt) {
-            var jsonTimeDate = JSON.parse(evt.data);
-            document.getElementById("x_ntp_time").innerHTML = jsonTimeDate.time;
-            document.getElementById("x_ntp_date").innerHTML = jsonTimeDate.date;
-            document.getElementById("x_ntp_sync").innerHTML = jsonTimeDate.lastSync;
-            document.getElementById("x_uptime").innerHTML = jsonTimeDate.uptime;
-            document.getElementById("x_last_boot").innerHTML = jsonTimeDate.lastBoot;
-        }, false);
     }
 
     window.addEventListener('load', initEvt, true);

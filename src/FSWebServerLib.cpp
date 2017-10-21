@@ -1,10 +1,3 @@
-// 
-// 
-// 
-
-
-//
-
 #include "FSWebServerLib.h"
 #include <StreamString.h>
 
@@ -21,39 +14,6 @@ Please Wait....Configuring and Restarting.
 )=====";
 
 AsyncFSWebServer::AsyncFSWebServer(uint16_t port) : AsyncWebServer(port) {}
-
-/*void AsyncFSWebServer::secondTick()
-{
-    _secondFlag = true;
-}*/
-
-/*void AsyncFSWebServer::secondTask() {
-    //DEBUGLOG("%s\r\n", NTP.getTimeDateString().c_str());
-    sendTimeData();
-}*/
-
-void AsyncFSWebServer::s_secondTick(void* arg) {
-    AsyncFSWebServer* self = reinterpret_cast<AsyncFSWebServer*>(arg);
-    if (self->_evs.count() > 0) {
-        self->sendTimeData();
-    }
-}
-
-void AsyncFSWebServer::sendTimeData() {
-    String data = "{";
-    data += "\"time\":\"" + NTP.getTimeStr() + "\",";
-    data += "\"date\":\"" + NTP.getDateStr() + "\",";
-    data += "\"lastSync\":\"" + NTP.getTimeDateString(NTP.getLastNTPSync()) + "\",";
-    data += "\"uptime\":\"" + NTP.getUptimeString() + "\",";
-    data += "\"lastBoot\":\"" + NTP.getTimeDateString(NTP.getLastBootTime()) + "\"";
-    data += "}\r\n";
-    DEBUGLOG(data.c_str());
-    _evs.send(data.c_str(), "timeDate");
-    DEBUGLOG("%s\r\n", NTP.getTimeDateString().c_str());
-    data = String();
-    //DEBUGLOG(__PRETTY_FUNCTION__);
-    //DEBUGLOG("\r\n")
-}
 
 String formatBytes(size_t bytes) {
     if (bytes < 1024) {
@@ -87,14 +47,12 @@ void AsyncFSWebServer::begin(FS* fs) {
 #ifndef RELEASE
     DBG_OUTPUT_PORT.setDebugOutput(true);
 #endif // RELEASE
-    // NTP client setup
     if (CONNECTION_LED >= 0) {
         pinMode(CONNECTION_LED, OUTPUT); // CONNECTION_LED pin defined as output
     }
     if (AP_ENABLE_BUTTON >= 0) {
         pinMode(AP_ENABLE_BUTTON, INPUT_PULLUP); // If this pin is HIGH during startup ESP will run in AP_ONLY mode. Backdoor to change WiFi settings when configured WiFi is not available.
     }
-    //analogWriteFreq(200);
 
     if (AP_ENABLE_BUTTON >= 0) {
         _apConfig.APenable = !digitalRead(AP_ENABLE_BUTTON); // Read AP button. If button is pressed activate AP
@@ -125,10 +83,6 @@ void AsyncFSWebServer::begin(FS* fs) {
     }
     loadHTTPAuth();
     //WIFI INIT
-    if (_config.updateNTPTimeEvery > 0) { // Enable NTP sync
-        NTP.begin(_config.ntpServerName, _config.timezone / 10, _config.daylight);
-        NTP.setInterval(15, _config.updateNTPTimeEvery * 60);
-    }
     // Register wifi Event to control connection LED
     onStationModeConnectedHandler = WiFi.onStationModeConnected([this](WiFiEventStationModeConnected data) {
         this->onWiFiConnected(data);
@@ -152,8 +106,6 @@ void AsyncFSWebServer::begin(FS* fs) {
     DEBUGLOG("Flash chip size: %u\r\n", ESP.getFlashChipRealSize());
     DEBUGLOG("Scketch size: %u\r\n", ESP.getSketchSize());
     DEBUGLOG("Free flash space: %u\r\n", ESP.getFreeSketchSpace());
-
-    _secondTk.attach(1.0f, &AsyncFSWebServer::s_secondTick, static_cast<void*>(this)); // Task to run periodic things every second
 
     AsyncWebServer::begin();
     serverInit(); // Configure and start Web server
@@ -214,10 +166,6 @@ bool AsyncFSWebServer::load_config() {
 
     _config.dhcp = json["dhcp"].as<bool>();
 
-    _config.ntpServerName = json["ntp"].as<const char *>();
-    _config.updateNTPTimeEvery = json["NTPperiod"].as<long>();
-    _config.timezone = json["timeZone"].as<long>();
-    _config.daylight = json["daylight"].as<long>();
     _config.deviceName = json["deviceName"].as<const char *>();
 
     //config.connectionLed = json["led"];
@@ -225,7 +173,6 @@ bool AsyncFSWebServer::load_config() {
     DEBUGLOG("Data initialized.\r\n");
     DEBUGLOG("SSID: %s ", _config.ssid.c_str());
     DEBUGLOG("PASS: %s\r\n", _config.password.c_str());
-    DEBUGLOG("NTP Server: %s\r\n", _config.ntpServerName.c_str());
     //DEBUGLOG("Connection LED: %d\n", config.connectionLed);
     DEBUGLOG(__PRETTY_FUNCTION__);
     DEBUGLOG("\r\n");
@@ -242,12 +189,7 @@ void AsyncFSWebServer::defaultConfig() {
     _config.netmask = IPAddress(255, 255, 255, 0);
     _config.gateway = IPAddress(192, 168, 1, 1);
     _config.dns = IPAddress(192, 168, 1, 1);
-    _config.ntpServerName = "pool.ntp.org";
-    _config.updateNTPTimeEvery = 15;
-    _config.timezone = 10;
-    _config.daylight = 1;
     _config.deviceName = "ESP8266fs";
-    //config.connectionLed = CONNECTION_LED;
     save_config();
     DEBUGLOG(__PRETTY_FUNCTION__);
     DEBUGLOG("\r\n");
@@ -287,13 +229,7 @@ bool AsyncFSWebServer::save_config() {
     jsondns.add(_config.dns[3]);
 
     json["dhcp"] = _config.dhcp;
-    json["ntp"] = _config.ntpServerName;
-    json["NTPperiod"] = _config.updateNTPTimeEvery;
-    json["timeZone"] = _config.timezone;
-    json["daylight"] = _config.daylight;
     json["deviceName"] = _config.deviceName;
-
-    //json["led"] = config.connectionLed;
 
     //TODO add AP data to html
     File configFile = _fs->open(CONFIG_FILE, "w");
@@ -357,8 +293,6 @@ bool AsyncFSWebServer::load_user_config(String name, String &value) {
 	DEBUGLOG("Data initialized.\r\n");
 	DEBUGLOG("SSID: %s ", _config.ssid.c_str());
 	DEBUGLOG("PASS: %s\r\n", _config.password.c_str());
-	DEBUGLOG("NTP Server: %s\r\n", _config.ntpServerName.c_str());
-	//DEBUGLOG("Connection LED: %d\n", config.connectionLed);
 	DEBUGLOG(__PRETTY_FUNCTION__);
 	DEBUGLOG("\r\n");
 	return true;
@@ -646,8 +580,6 @@ void AsyncFSWebServer::onWiFiDisconnected(WiFiEventStationModeDisconnected data)
     if (CONNECTION_LED >= 0) {
         digitalWrite(CONNECTION_LED, HIGH); // Turn LED off
     }
-    //DBG_OUTPUT_PORT.printf("Led %s off\n", CONNECTION_LED);
-    //flashLED(config.connectionLed, 2, 100);
     if (wifiDisconnectedSince == 0) {
         wifiDisconnectedSince = millis();
     }
@@ -704,10 +636,6 @@ String getContentType(String filename, AsyncWebServerRequest *request) {
 
 bool AsyncFSWebServer::handleFileRead(String path, AsyncWebServerRequest *request) {
     DEBUGLOG("handleFileRead: %s\r\n", path.c_str());
-    if (CONNECTION_LED >= 0) {
-        // CANNOT RUN DELAY() INSIDE CALLBACK
-        flashLED(CONNECTION_LED, 1, 25); // Show activity on LED
-    }
     if (path.endsWith("/"))
         path += "index.htm";
     String contentType = getContentType(path, request);
@@ -872,11 +800,6 @@ void AsyncFSWebServer::send_information_values_html(AsyncWebServerRequest *reque
     values += "x_netmask|" + (String)WiFi.subnetMask()[0] + "." + (String)WiFi.subnetMask()[1] + "." + (String)WiFi.subnetMask()[2] + "." + (String)WiFi.subnetMask()[3] + "|div\n";
     values += "x_mac|" + getMacAddress() + "|div\n";
     values += "x_dns|" + (String)WiFi.dnsIP()[0] + "." + (String)WiFi.dnsIP()[1] + "." + (String)WiFi.dnsIP()[2] + "." + (String)WiFi.dnsIP()[3] + "|div\n";
-    values += "x_ntp_sync|" + NTP.getTimeDateString(NTP.getLastNTPSync()) + "|div\n";
-    values += "x_ntp_time|" + NTP.getTimeStr() + "|div\n";
-    values += "x_ntp_date|" + NTP.getDateStr() + "|div\n";
-    values += "x_uptime|" + NTP.getUptimeString() + "|div\n";
-    values += "x_last_boot|" + NTP.getTimeDateString(NTP.getLastBootTime()) + "|div\n";
 
     request->send(200, "text/plain", values);
     //delete &values;
@@ -892,19 +815,6 @@ String AsyncFSWebServer::getMacAddress() {
     WiFi.macAddress(mac);
     sprintf(macStr, "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     return  String(macStr);
-}
-
-void AsyncFSWebServer::send_NTP_configuration_values_html(AsyncWebServerRequest *request) {
-
-    String values = "";
-    values += "ntpserver|" + (String)_config.ntpServerName + "|input\n";
-    values += "update|" + (String)_config.updateNTPTimeEvery + "|input\n";
-    values += "tz|" + (String)_config.timezone + "|input\n";
-    values += "dst|" + (String)(_config.daylight ? "checked" : "") + "|chk\n";
-    request->send(200, "text/plain", values);
-    DEBUGLOG(__FUNCTION__);
-    DEBUGLOG("\r\n");
-
 }
 
 // convert a single hex digit character to its integer value (from https://code.google.com/p/avr-netino/)
@@ -1036,51 +946,6 @@ void AsyncFSWebServer::send_general_configuration_html(AsyncWebServerRequest *re
 
     DEBUGLOG(__PRETTY_FUNCTION__);
     DEBUGLOG("\r\n");
-}
-
-void AsyncFSWebServer::send_NTP_configuration_html(AsyncWebServerRequest *request) {
-
-    if (!checkAuth(request))
-        return request->requestAuthentication();
-
-    if (request->args() > 0)  // Save Settings
-    {
-        _config.daylight = false;
-        //String temp = "";
-        for (uint8_t i = 0; i < request->args(); i++) {
-            if (request->argName(i) == "ntpserver") {
-                _config.ntpServerName = urldecode(request->arg(i));
-                NTP.setNtpServerName(_config.ntpServerName);
-                continue;
-            }
-            if (request->argName(i) == "update") {
-                _config.updateNTPTimeEvery = request->arg(i).toInt();
-                NTP.setInterval(_config.updateNTPTimeEvery * 60);
-                continue;
-            }
-            if (request->argName(i) == "tz") {
-                _config.timezone = request->arg(i).toInt();
-                NTP.setTimeZone(_config.timezone / 10);
-                continue;
-            }
-            if (request->argName(i) == "dst") {
-                _config.daylight = true;
-                DEBUGLOG("Daylight Saving: %d\r\n", _config.daylight);
-                continue;
-            }
-        }
-
-        NTP.setDayLight(_config.daylight);
-        save_config();
-        //firstStart = true;
-
-        setTime(NTP.getTime()); //set time
-    }
-    handleFileRead("/ntp.html", request);
-    //server.send(200, "text/html", PAGE_NTPConfiguration);
-    DEBUGLOG(__PRETTY_FUNCTION__);
-    DEBUGLOG("\r\n");
-
 }
 
 void AsyncFSWebServer::restart_esp(AsyncWebServerRequest *request) {
@@ -1310,11 +1175,6 @@ void AsyncFSWebServer::serverInit() {
             return request->requestAuthentication();
         this->send_information_values_html(request);
     });
-    on("/admin/ntpvalues", [this](AsyncWebServerRequest *request) {
-        if (!this->checkAuth(request))
-            return request->requestAuthentication();
-        this->send_NTP_configuration_values_html(request);
-    });
     on("/config.html", [this](AsyncWebServerRequest *request) {
         if (!this->checkAuth(request))
             return request->requestAuthentication();
@@ -1350,11 +1210,6 @@ void AsyncFSWebServer::serverInit() {
         if (!this->checkAuth(request))
             return request->requestAuthentication();
         this->send_general_configuration_html(request);
-    });
-    on("/ntp.html", [this](AsyncWebServerRequest *request) {
-        if (!this->checkAuth(request))
-            return request->requestAuthentication();
-        this->send_NTP_configuration_html(request);
     });
     on("/admin/restart", [this](AsyncWebServerRequest *request) {
         DBG_OUTPUT_PORT.println(request->url());
@@ -1488,18 +1343,6 @@ void AsyncFSWebServer::serverInit() {
 	});
 
 #endif // HIDE_CONFIG
-
-    //get heap status, analog input value and all GPIO statuses in one json call
-    on("/all", HTTP_GET, [](AsyncWebServerRequest *request) {
-        String json = "{";
-        json += "\"heap\":" + String(ESP.getFreeHeap());
-        json += ", \"analog\":" + String(analogRead(A0));
-        json += ", \"gpio\":" + String((uint32_t)(((GPI | GPO) & 0xFFFF) | ((GP16I & 0x01) << 16)));
-        json += "}";
-        request->send(200, "text/json", json);
-        json = String();
-    });
-    //server.begin(); --> Not here
     DEBUGLOG("HTTP server started\r\n");
 }
 
@@ -1531,3 +1374,6 @@ AsyncFSWebServer& AsyncFSWebServer::setPOSTCallback(POST_CALLBACK_SIGNATURE) {
 	return *this;
 }
 
+void AsyncFSWebServer::event_send(char *json, char *type) {
+  _evs.send(json, type);
+}

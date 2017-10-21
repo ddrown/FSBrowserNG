@@ -23,8 +23,6 @@ My code is a fork of both projects, and has become a start framework for my futu
 
 I only have to add more HTML data and some funtions to show dynamic data in order to adapt it to any other task.
 
-It has integrated NTP syncronization based on my own [NTPClient library](https://github.com/gmag11/NtpClient), that can be configured via this Web interface too.
-
 Configuration is stored on SPIFFS too, in a JSON file. So, it recovers config during boot.
 
 Implemented OTA Update with Arduino IDE and Web interface.
@@ -49,10 +47,6 @@ AP Mode is also started when `loadConfig()` finds no config file (config.json). 
 	"gateway":[192,168,1,1],
 	"dns":[192,168,1,1],
 	"dhcp":1
-	,"ntp":"es.pool.ntp.org"
-	,"NTPperiod":5
-	,"timeZone":10
-	,"daylight":1
 	,"deviceName":"ESP8266fs"
 }
 ```
@@ -76,8 +70,6 @@ FSBrowserNG extends AsyncWebServer class. So, you may use all its methods as usu
 
 This library makes use of other libraries you have to include in your Arduino library folder.
 
-- `TimeLib.h` Time library by **Paul Stoffregen** https://github.com/PaulStoffregen/Time
-- `NtpClientLib.h` NTP Client library by **Germ&aacute;n Mart&iacute;n** https://github.com/gmag11/NtpClient
 - `ESPAsyncTCP.h` Async TCP library by **Me No Dev** https://github.com/me-no-dev/ESPAsyncTCP
 - `ESPAsyncWebServer.h` HTTP Async Web Server library by **Me No Dev** https://github.com/me-no-dev/ESPAsyncWebServer
 - `ArduinoJson` JSON library by **Benoît Blanchon** https://github.com/bblanchon/ArduinoJson
