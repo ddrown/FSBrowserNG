@@ -92,7 +92,7 @@ void AsyncFSWebServer::begin(FS* fs) {
     });
     WiFi.hostname(_config.deviceName.c_str());
     if (AP_ENABLE_BUTTON >= 0) {
-        if (_apConfig.APenable) {
+        if (_apConfig.APenable || _config.ssid.length() == 0) {
             configureWifiAP(); // Set AP mode if AP button was pressed
         } else {
             configureWifi(); // Set WiFi config
@@ -182,8 +182,8 @@ bool AsyncFSWebServer::load_config() {
 
 void AsyncFSWebServer::defaultConfig() {
     // DEFAULT CONFIG
-    _config.ssid = "YOUR_DEFAULT_WIFI_SSID";
-    _config.password = "YOUR_DEFAULT_WIFI_PASSWD";
+    _config.ssid = "";
+    _config.password = "";
     _config.dhcp = 1;
     _config.ip = IPAddress(192, 168, 1, 4);
     _config.netmask = IPAddress(255, 255, 255, 0);
@@ -482,6 +482,7 @@ void AsyncFSWebServer::configureWifiAP() {
     //WiFi.disconnect();
     WiFi.mode(WIFI_AP);
     String APname = _apConfig.APssid + (String)ESP.getChipId();
+    DBG_OUTPUT_PORT.printf("AP enabled with SSID: %s\r\n", APname.c_str());
     if (_httpAuth.auth) {
         WiFi.softAP(APname.c_str(), _httpAuth.wwwPassword.c_str());
         DEBUGLOG("AP Pass enabled: %s\r\n", _httpAuth.wwwPassword.c_str());
@@ -502,7 +503,7 @@ void AsyncFSWebServer::configureWifi() {
 	WiFi.mode(WIFI_STA);
 
     //currentWifiStatus = WIFI_STA_DISCONNECTED;
-    DEBUGLOG("Connecting to %s\r\n", _config.ssid.c_str());
+    DBG_OUTPUT_PORT.printf("Connecting to %s\r\n", _config.ssid.c_str());
     WiFi.begin(_config.ssid.c_str(), _config.password.c_str());
     if (!_config.dhcp) {
         DEBUGLOG("NO DHCP\r\n");
@@ -1153,6 +1154,8 @@ void AsyncFSWebServer::serverInit() {
     //first callback is called after the request has ended with all parsed arguments
     //second callback handles file uploads at that location
     on("/edit", HTTP_POST, [](AsyncWebServerRequest *request) { request->send(200, "text/plain", ""); }, [this](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
+        if (!this->checkAuth(request))
+            return request->requestAuthentication();
         this->handleFileUpload(request, filename, index, data, len, final);
     });
     on("/admin/generalvalues", HTTP_GET, [this](AsyncWebServerRequest *request) {
@@ -1180,7 +1183,9 @@ void AsyncFSWebServer::serverInit() {
             return request->requestAuthentication();
         this->send_network_configuration_html(request);
     });
-    on("/scan", HTTP_GET, [](AsyncWebServerRequest *request) {
+    on("/scan", HTTP_GET, [this](AsyncWebServerRequest *request) {
+        if (!this->checkAuth(request))
+            return request->requestAuthentication();
         String json = "[";
         int n = WiFi.scanComplete();
         if (n == WIFI_SCAN_FAILED) {
@@ -1212,7 +1217,6 @@ void AsyncFSWebServer::serverInit() {
         this->send_general_configuration_html(request);
     });
     on("/admin/restart", [this](AsyncWebServerRequest *request) {
-        DBG_OUTPUT_PORT.println(request->url());
         if (!this->checkAuth(request))
             return request->requestAuthentication();
         this->restart_esp(request);
